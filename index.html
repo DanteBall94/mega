@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TV Player</title>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+<style>
+body{
+    margin:0;
+    background:black;
+    overflow:hidden;
+    font-family:Arial;
+}
+
+video{
+    width:100%;
+    height:calc(100vh - 60px);
+    background:black;
+    object-fit:contain;
+}
+}
+
+.controls{
+    height:60px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:10px;
+    background:#111;
+}
+
+button{
+    background:#2a2a2a;
+    color:white;
+    border:none;
+    padding:10px 14px;
+    border-radius:6px;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#444;
+}
+</style>
+</head>
+
+<body>
+
+<video id="video" autoplay controls></video>
+
+<div class="controls">
+    <button onclick="startRecording()">Grabar</button>
+    <button onclick="stopRecording()">Detener</button>
+    <button onclick="downloadRecording()">Descargar</button>
+</div>
+
+<script>
+const video = document.getElementById('video');
+
+/* 🔥 TU STREAM */
+const src = "https://unlimited2-cl-isp.dps.live/mega/mega.smil/playlist.m3u8?PlaylistM3UCL";
+
+if (Hls.isSupported()) {
+    const hls = new Hls();
+    hls.loadSource(src);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(()=>{}));
+} else {
+    video.src = src;
+}
+
+/* ===== TU CÓDIGO DE GRABACIÓN (SIN CAMBIOS) ===== */
+let recorder;
+let chunks = [];
+let recordedBlob = null;
+
+/* RECORD */
+function startRecording() {
+
+    const stream = video.captureStream?.();
+
+    if (!stream) {
+        alert("Este navegador no soporta grabación de este video");
+        return;
+    }
+
+    chunks = [];
+    recordedBlob = null;
+
+    recorder = new MediaRecorder(stream, {
+        mimeType: "video/webm;codecs=vp8"
+    });
+
+    recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+            chunks.push(e.data);
+        }
+    };
+
+    recorder.onstop = () => {
+        recordedBlob = new Blob(chunks, { type: "video/webm" });
+        console.log("🎥 Grabación lista");
+    };
+
+    recorder.start(1000);
+}
+
+/* STOP */
+function stopRecording() {
+    if (recorder && recorder.state !== "inactive") {
+        recorder.stop();
+    }
+}
+
+/* DOWNLOAD */
+function downloadRecording() {
+    if (!recordedBlob) {
+        alert("Primero detén la grabación.");
+        return;
+    }
+
+    const url = URL.createObjectURL(recordedBlob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "grabacion_tv.webm";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+</script>
+
+</body>
+</html>
