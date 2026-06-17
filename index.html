@@ -3,137 +3,83 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TV Player</title>
-
+<title>DantePlayer</title>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-
 <style>
-body{
-    margin:0;
-    background:black;
-    overflow:hidden;
-    font-family:Arial;
-}
-
-video{
-    width:100%;
-    height:calc(100vh - 60px);
-    background:black;
-    object-fit:contain;
-}
-}
-
-.controls{
-    height:60px;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    gap:10px;
-    background:#111;
-}
-
-button{
-    background:#2a2a2a;
-    color:white;
-    border:none;
-    padding:10px 14px;
-    border-radius:6px;
-    cursor:pointer;
-}
-
-button:hover{
-    background:#444;
-}
+*{margin:0;padding:0;box-sizing:border-box;font-family:Segoe UI, Arial,sans-serif;}
+body{background:#0f0f0f;color:#fff;}
+header{height:70px;background:#181818;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid #2a2a2a;}
+.logo{font-weight:bold;font-size:16px;}
+.live{display:flex;align-items:center;gap:8px;font-size:13px;color:#ccc;}
+.live::before{content:"";width:9px;height:9px;background:red;border-radius:50%;}
+#clock{font-size:13px;color:#999;}
+video{width:100%;height:calc(100vh - 140px);background:black;}
+.controls{display:flex;justify-content:center;gap:10px;padding:12px;background:#181818;}
+button{background:#2a2a2a;color:white;border:none;padding:10px 14px;border-radius:5px;cursor:pointer;}
+button:hover{background:#3a3a3a;}
+footer{height:50px;display:flex;align-items:center;justify-content:center;color:#777;font-size:13px;border-top:1px solid #2a2a2a;}
+a{color:#8bdc65;text-decoration:none;}
 </style>
 </head>
-
 <body>
+<header>
+<div class="logo">.</div>
+<div class="live">EN VIVO</div>
+<div id="clock"></div>
+</header>
 
-<video id="video" autoplay controls></video>
+<video id="video" autoplay muted playsinline controls></video>
 
 <div class="controls">
-    <button onclick="startRecording()">Grabar</button>
-    <button onclick="stopRecording()">Detener</button>
-    <button onclick="downloadRecording()">Descargar</button>
+<button onclick="enterFullscreen()">Pantalla completa</button>
+<button onclick="startRecording()">Grabar</button>
+<button onclick="stopRecording()">Detener</button>
+<button onclick="downloadRecording()">Descargar</button>
 </div>
 
+<footer>
+<a href="https://www.youtube.com/@Dante_Media" target="_blank">Creador Dante Media</a>
+</footer>
+
 <script>
-const video = document.getElementById('video');
+const video=document.getElementById('video');
+const src="https://unlimited2-cl-isp.dps.live/mega/mega.smil/playlist.m3u8?PlaylistM3UCL";
 
-/* 🔥 TU STREAM */
-const src = "https://unlimited2-cl-isp.dps.live/mega/mega.smil/playlist.m3u8?PlaylistM3UCL";
+let recorder;let chunks=[];
 
-if (Hls.isSupported()) {
-    const hls = new Hls();
-    hls.loadSource(src);
-    hls.attachMedia(video);
-    hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(()=>{}));
-} else {
-    video.src = src;
+if(Hls.isSupported()){
+ const hls=new Hls();
+ hls.loadSource(src);
+ hls.attachMedia(video);
+ hls.on(Hls.Events.MANIFEST_PARSED,()=>video.play().catch(()=>{}));
+}else{video.src=src;}
+
+function enterFullscreen(){document.documentElement.requestFullscreen?.();}
+
+function updateClock(){
+document.getElementById('clock').textContent=new Date().toLocaleTimeString('es-CL');
+}
+setInterval(updateClock,1000);updateClock();
+
+function startRecording(){
+const stream=video.captureStream();
+recorder=new MediaRecorder(stream);
+chunks=[];
+recorder.ondataavailable=e=>chunks.push(e.data);
+recorder.onstop=()=>{window.blob=new Blob(chunks,{type:'video/webm'});};
+recorder.start();
 }
 
-/* ===== TU CÓDIGO DE GRABACIÓN (SIN CAMBIOS) ===== */
-let recorder;
-let chunks = [];
-let recordedBlob = null;
+function stopRecording(){recorder?.state!=="inactive"&&recorder.stop();}
 
-/* RECORD */
-function startRecording() {
-
-    const stream = video.captureStream?.();
-
-    if (!stream) {
-        alert("Este navegador no soporta grabación de este video");
-        return;
-    }
-
-    chunks = [];
-    recordedBlob = null;
-
-    recorder = new MediaRecorder(stream, {
-        mimeType: "video/webm;codecs=vp8"
-    });
-
-    recorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) {
-            chunks.push(e.data);
-        }
-    };
-
-    recorder.onstop = () => {
-        recordedBlob = new Blob(chunks, { type: "video/webm" });
-        console.log("🎥 Grabación lista");
-    };
-
-    recorder.start(1000);
-}
-
-/* STOP */
-function stopRecording() {
-    if (recorder && recorder.state !== "inactive") {
-        recorder.stop();
-    }
-}
-
-/* DOWNLOAD */
-function downloadRecording() {
-    if (!recordedBlob) {
-        alert("Primero detén la grabación.");
-        return;
-    }
-
-    const url = URL.createObjectURL(recordedBlob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "grabacion_tv.webm";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+function downloadRecording(){
+if(!window.blob)return;
+const url=URL.createObjectURL(window.blob);
+const a=document.createElement('a');
+a.href=url;
+a.download="video.webm";
+a.click();
 }
 </script>
-
 </body>
 </html>
